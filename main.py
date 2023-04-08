@@ -32,13 +32,20 @@ def scrape_data(ticker):
         f = open(f"data/{ticker}.json")
         data = pd.DataFrame.from_dict(json.load(f))
     else:
-        # Request data
-        data = requests.get(
-            f"https://cdn.cboe.com/api/global/delayed_quotes/options/_{ticker}.json"
-        )
-        # Save data to file
-        with open(f"data/{ticker}.json", "w") as f:
-            json.dump(data.json(), f)
+        # Request data and save it to file
+        try:
+            data = requests.get(
+                f"https://cdn.cboe.com/api/global/delayed_quotes/options/_{ticker}.json"
+            )
+            with open(f"data/{ticker}.json", "w") as f:
+                json.dump(data.json(), f)
+
+        except ValueError:
+            data = requests.get(
+                f"https://cdn.cboe.com/api/global/delayed_quotes/options/{ticker}.json"
+            )
+            with open(f"data/{ticker}.json", "w") as f:
+                json.dump(data.json(), f)
         # Convert json to pandas DataFrame
         data = pd.DataFrame.from_dict(data.json())
 
@@ -75,16 +82,15 @@ def compute_total_gex(spot, data):
 def compute_gex_by_strike(spot, data):
     """Compute and plot GEX by strike"""
     # Compute total GEX by strike
-    gex_by_strike = data.groupby("strike")["GEX"].sum() / 10 ** 9
+    gex_by_strike = data.groupby("strike")["GEX"].sum() / 10**9
 
-    # Limit data to +- 25% from spot price
-    limit_criteria = (gex_by_strike.index > spot * 0.75) & (gex_by_strike.index < spot * 1.25)
+    # Limit data to +- 15% from spot price
+    limit_criteria = (gex_by_strike.index > spot * 0.85) & (gex_by_strike.index < spot * 1.15)
 
     # Plot GEX by strike
     plt.bar(
         gex_by_strike.loc[limit_criteria].index,
         gex_by_strike.loc[limit_criteria],
-        width=5,
         color="#FE53BB",
         alpha=0.5,
     )
@@ -104,7 +110,7 @@ def compute_gex_by_expiration(data):
     data = data.loc[data.expiration < selected_date]
 
     # Compute GEX by expiration date
-    gex_by_expiration = data.groupby("expiration")["GEX"].sum() / 10 ** 9
+    gex_by_expiration = data.groupby("expiration")["GEX"].sum() / 10**9
 
     # Plot GEX by expiration
     plt.bar(
@@ -127,14 +133,14 @@ def print_gex_surface(spot, data):
     # Limit data to 1 year and +- 15% from ATM
     selected_date = datetime.today() + timedelta(days=365)
     limit_criteria = (
-            (data.expiration < selected_date)
-            & (data.strike > spot * 0.85)
-            & (data.strike < spot * 1.15)
+        (data.expiration < selected_date)
+        & (data.strike > spot * 0.85)
+        & (data.strike < spot * 1.15)
     )
     data = data.loc[limit_criteria]
 
     # Compute GEX by expiration and strike
-    data = data.groupby(["expiration", "strike"])["GEX"].sum() / 10 ** 6
+    data = data.groupby(["expiration", "strike"])["GEX"].sum() / 10**6
     data = data.reset_index()
 
     # Plot 3D surface
@@ -154,5 +160,5 @@ def print_gex_surface(spot, data):
 
 
 if __name__ == "__main__":
-    ticker = input("Enter desired ticker:")
+    ticker = input("Enter desired ticker:").upper()
     run(ticker)
